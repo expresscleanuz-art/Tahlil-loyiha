@@ -5,11 +5,18 @@ import numpy as np
 import io
 import os
 
-from backend.ai_engine import (
-    clean_data, generate_synthetic_data, create_sample_data,
-    train_and_forecast, calculate_rul, calculate_health_score,
-    generate_ai_insights
-)
+try:
+    from backend.ai_engine import (
+        clean_data, generate_synthetic_data, create_sample_data,
+        train_and_forecast, calculate_rul, calculate_health_score,
+        generate_ai_insights
+    )
+except ImportError:
+    from ai_engine import (
+        clean_data, generate_synthetic_data, create_sample_data,
+        train_and_forecast, calculate_rul, calculate_health_score,
+        generate_ai_insights
+    )
 
 import logging
 
@@ -185,4 +192,4 @@ async def run_forecast(
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("backend.main:app", host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=port)
