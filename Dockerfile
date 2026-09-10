@@ -10,4 +10,4 @@ COPY . .
 ENV PORT=8000
 EXPOSE 8000
 
-CMD ["python", "-m", "backend.main"]
+CMD ["python", "main.py"]
