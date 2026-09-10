@@ -390,7 +390,7 @@ function App() {
                return (
                  <div className="chart-container" key={col}>
                     <h4 className="chart-title">{col} prognozi ({forecastYears} yillik davr)</h4>
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height={320} minWidth={0} minHeight={200}>
                         <LineChart data={data} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                           <XAxis 
