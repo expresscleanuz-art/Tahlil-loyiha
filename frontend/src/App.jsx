@@ -59,11 +59,33 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
+  const [appConfig, setAppConfig] = useState(APP_CONFIG);
 
   useEffect(() => {
-    if (APP_CONFIG.pageTitle) {
-      document.title = APP_CONFIG.pageTitle;
-    }
+    // Dynamic config yuklash
+    const loadDynamicConfig = async () => {
+      try {
+        let apiUrl = import.meta.env.VITE_API_URL || '';
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || !window.location.hostname) {
+          apiUrl = '';
+        }
+        apiUrl = apiUrl.replace(/\/+$/, '');
+        const res = await axios.get(`${apiUrl}/api/config`);
+        if (res.data) {
+          const cfg = {
+            appName: res.data.app_name || APP_CONFIG.appName,
+            badge: res.data.badge || APP_CONFIG.badge,
+            subtitle: res.data.subtitle || APP_CONFIG.subtitle,
+            pageTitle: res.data.page_title || APP_CONFIG.pageTitle
+          };
+          setAppConfig(cfg);
+          document.title = cfg.pageTitle;
+        }
+      } catch (err) {
+        document.title = APP_CONFIG.pageTitle;
+      }
+    };
+    loadDynamicConfig();
   }, []);
 
   const handleFileChange = (e) => {

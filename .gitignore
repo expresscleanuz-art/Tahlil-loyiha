@@ -7,5 +7,9 @@ env/
 .vscode/
 .idea/
 node_modules/
+dist/
+build/
+*.spec
+*.zip
 frontend/dist/
 frontend/node_modules/

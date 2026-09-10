@@ -46,6 +46,38 @@ from fastapi.responses import FileResponse
 base_dir = getattr(sys, '_MEIPASS', os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 dist_dir = os.path.join(base_dir, "frontend", "dist")
 
+import json
+
+CONFIG_FILE = "config.json"
+
+def get_app_config():
+    default_config = {
+        "app_name": "Kiber AI",
+        "badge": "KIBER AI v2.3",
+        "subtitle": "Uskunalar holatini bashorat qilish va monitoring tizimi. Uzoq muddatli tahlil uchun Bidirectional LSTM neyron tarmoqlaridan foydalaniladi.",
+        "page_title": "Kiber AI Prognozi | Bashoratli monitoring tizimi"
+    }
+    
+    paths_to_check = [
+        os.path.join(os.getcwd(), CONFIG_FILE),
+        os.path.join(os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.getcwd(), CONFIG_FILE),
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), CONFIG_FILE),
+        os.path.join(base_dir, CONFIG_FILE)
+    ]
+    
+    for path in paths_to_check:
+        if os.path.exists(path):
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception:
+                pass
+    return default_config
+
+@app.get("/api/config")
+def read_config():
+    return get_app_config()
+
 if os.path.exists(dist_dir) and os.path.exists(os.path.join(dist_dir, "index.html")):
     assets_dir = os.path.join(dist_dir, "assets")
     if os.path.exists(assets_dir):

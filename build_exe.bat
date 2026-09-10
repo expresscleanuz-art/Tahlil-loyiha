@@ -29,10 +29,15 @@ pyinstaller --noconfirm --onedir --windowed --name "Kiber_AI" ^
   app_desktop.py
 
 echo.
+echo config.json fayli dastur papkasiga nusxalanmoqda...
+copy config.json dist\Kiber_AI\config.json
+
+echo.
 echo ==========================================================
 echo   TABRIKLAYMIZ! EXE dastur muvaffaqiyatli yaratildi!
 echo.
 echo   Joylashgan joyi: 
 echo   dist\Kiber_AI\Kiber_AI.exe
+echo   dist\Kiber_AI\config.json (Dastur nomini o'zgartirish fayli)
 echo ==========================================================
 pause
