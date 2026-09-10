@@ -89,8 +89,12 @@ function App() {
       formData.append('vyahh', vyahh);
       formData.append('vxahh', vxahh);
 
-      const rawUrl = import.meta.env.VITE_API_URL || '';
-      const apiUrl = rawUrl.replace(/\/+$/, '');
+      let apiUrl = import.meta.env.VITE_API_URL || '';
+      // Agar dastur lokal kompyuterda (Desktop .EXE yoki localhost) ishlayotgan bo'lsa, to'g'ridan-to'g'ri lokal backendga ulanadi (100% Internetsiz)
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || !window.location.hostname) {
+        apiUrl = '';
+      }
+      apiUrl = apiUrl.replace(/\/+$/, '');
       const response = await axios.post(`${apiUrl}/api/forecast`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
