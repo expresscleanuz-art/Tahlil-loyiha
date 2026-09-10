@@ -38,9 +38,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/")
-def read_root():
-    return {"status": "ok", "message": "Industrial AI API is running"}
+import sys
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+# Frontend static files mounting (agar dist papka mavjud bo'lsa)
+base_dir = getattr(sys, '_MEIPASS', os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+dist_dir = os.path.join(base_dir, "frontend", "dist")
+
+if os.path.exists(dist_dir) and os.path.exists(os.path.join(dist_dir, "index.html")):
+    assets_dir = os.path.join(dist_dir, "assets")
+    if os.path.exists(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+    @app.get("/")
+    async def serve_spa_root():
+        return FileResponse(os.path.join(dist_dir, "index.html"))
+else:
+    @app.get("/")
+    def read_root():
+        return {"status": "ok", "message": "Industrial AI API is running"}
 
 @app.post("/api/forecast")
 async def run_forecast(

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, 
@@ -8,6 +8,7 @@ import {
   Settings, Upload, Activity, AlertTriangle, CheckCircle, 
   Menu, Factory, Zap, Thermometer, Gauge, ChevronRight, ChevronLeft, BrainCircuit
 } from 'lucide-react';
+import { APP_CONFIG } from './config';
 import './App.css';
 
 // --- New Health Gauge Component ---
@@ -58,6 +59,12 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (APP_CONFIG.pageTitle) {
+      document.title = APP_CONFIG.pageTitle;
+    }
+  }, []);
 
   const handleFileChange = (e) => {
     if (e.target.files.length > 0) {
@@ -272,12 +279,12 @@ function App() {
       {/* Main Content Area */}
       <div className={`main-content ${sidebarOpen ? 'shifted' : ''}`}>
         <div className="header">
-          <div className="project-badge">SANOAT AI v2.3</div>
+          <div className="project-badge">{APP_CONFIG.badge}</div>
           <h1 className="text-gradient">
             <BrainCircuit size={48} style={{display:'inline', verticalAlign:'middle', marginRight: '15px'}} /> 
-            Sanoat AI Prognozi
+            {APP_CONFIG.appName} Prognozi
           </h1>
-          <p className="subtitle">Uskunalar holatini bashorat qilish va monitoring tizimi. Uzoq muddatli tahlil uchun Bidirectional LSTM neyron tarmoqlaridan foydalaniladi.</p>
+          <p className="subtitle">{APP_CONFIG.subtitle}</p>
           <div className="system-status">
              <span className="status-dot"></span> Tizim tayyor
           </div>
