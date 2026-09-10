@@ -82,17 +82,25 @@ function App() {
       formData.append('vyahh', vyahh);
       formData.append('vxahh', vxahh);
 
-      const apiUrl = import.meta.env.VITE_API_URL || '';
+      const rawUrl = import.meta.env.VITE_API_URL || '';
+      const apiUrl = rawUrl.replace(/\/+$/, '');
       const response = await axios.post(`${apiUrl}/api/forecast`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       setResults(response.data);
       if(window.innerWidth < 768) setSidebarOpen(false); // auto close on mobile
     } catch (err) {
-      const message = err.response?.data?.detail || err.message || "Noma'lum xatolik yuz berdi";
+      let message = "Noma'lum xatolik yuz berdi";
+      if (err.response?.data?.detail) {
+        message = err.response.data.detail;
+      } else if (err.message === "Network Error") {
+        message = "Serverga ulanib bo'lmadi (Network Error). Backend (Railway/Lokal) manzili to'g'ri kiritilgani va server ishlayotganini tekshiring.";
+      } else if (err.message) {
+        message = err.message;
+      }
       setError(message);
-      // 5 soniyadan keyin xato xabarini avtomatik yashirish
-      setTimeout(() => setError(null), 5000);
+      // 7 soniyadan keyin xato xabarini avtomatik yashirish
+      setTimeout(() => setError(null), 7000);
     } finally {
       setLoading(false);
     }
