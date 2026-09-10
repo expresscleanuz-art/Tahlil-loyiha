@@ -180,3 +180,9 @@ async def run_forecast(
     except Exception as e:
         logger.error(f"Error in /api/forecast: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"AI Engine Error: {str(e)}")
+
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=port)
