@@ -19,7 +19,8 @@ cd ..
 
 echo.
 echo [2/3] Kerakli kutubxonalar tekshirilmoqda...
-pip install pyinstaller pywebview
+pip install "numpy<2" pyinstaller pywebview
+pip install -r requirements.txt
 
 echo.
 echo [3/3] PyInstaller orqali .EXE dasturi yig'ilmoqda...
