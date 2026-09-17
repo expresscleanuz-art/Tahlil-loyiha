@@ -305,12 +305,12 @@ function App() {
       {/* Main Content Area */}
       <div className={`main-content ${sidebarOpen ? 'shifted' : ''}`}>
         <div className="header">
-          <div className="project-badge">{APP_CONFIG.badge}</div>
+          <div className="project-badge">{appConfig.badge}</div>
           <h1 className="text-gradient">
             <BrainCircuit size={48} style={{display:'inline', verticalAlign:'middle', marginRight: '15px'}} /> 
-            {APP_CONFIG.appName} Prognozi
+            {appConfig.appName} Prognozi
           </h1>
-          <p className="subtitle">{APP_CONFIG.subtitle}</p>
+          <p className="subtitle">{appConfig.subtitle}</p>
           <div className="system-status">
              <span className="status-dot"></span> Tizim tayyor
           </div>
