@@ -27,6 +27,7 @@ echo [3/3] PyInstaller orqali .EXE dasturi yig'ilmoqda...
 pyinstaller --noconfirm --onedir --windowed --name "Kiber_AI" ^
   --collect-all webview ^
   --collect-all uvicorn ^
+  --collect-all torch ^
   --add-data "frontend/dist;frontend/dist" ^
   --add-data "backend;backend" ^
   app_desktop.py

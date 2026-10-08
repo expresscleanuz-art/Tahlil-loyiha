@@ -52,10 +52,10 @@ CONFIG_FILE = "config.json"
 
 def get_app_config():
     default_config = {
-        "app_name": "Kiber AI",
-        "badge": "KIBER AI v2.3",
+        "app_name": "VIBRA AI",
+        "badge": "",
         "subtitle": "Uskunalar holatini bashorat qilish va monitoring tizimi. Uzoq muddatli tahlil uchun Bidirectional LSTM neyron tarmoqlaridan foydalaniladi.",
-        "page_title": "Kiber AI Prognozi | Bashoratli monitoring tizimi"
+        "page_title": "VIBRA AI | Bashoratli monitoring tizimi"
     }
     
     paths_to_check = [
@@ -103,8 +103,16 @@ async def run_forecast(
     vxahh: float = Form(6.0)
 ):
     try:
+        forecast_years = int(getattr(forecast_years, 'default', forecast_years))
+        epochs = int(getattr(epochs, 'default', epochs))
+        degradation = float(getattr(degradation, 'default', degradation))
+        vyahh = float(getattr(vyahh, 'default', vyahh))
+        vxahh = float(getattr(vxahh, 'default', vxahh))
+        eq_type = str(getattr(eq_type, 'default', eq_type))
+        use_demo = bool(getattr(use_demo, 'default', use_demo))
+
         df = None
-        if file is not None and file.filename:
+        if file is not None and hasattr(file, 'filename') and file.filename:
             contents = await file.read()
             if file.filename.endswith('.xlsx') or file.filename.endswith('.xls'):
                 df = pd.read_excel(io.BytesIO(contents))
@@ -178,14 +186,17 @@ async def run_forecast(
         if 'Time' in df.columns:
             original_last_date = pd.to_datetime(df['Time'].iloc[-1])
 
-        # Generate forecast
-        # FIX: Use the actual forecast_years parameter for synthetic data extension
-        total_target_days = len(df) + (forecast_years * 365)
-        extended_df = generate_synthetic_data(df, target_days=total_target_days, degradation_factor=degradation)
-        
-        forecast_df, _, _, is_fallback = train_and_forecast(
-            extended_df, feature_cols, forecast_years=forecast_years,
-            seq_length=min(30, len(extended_df) // 3), epochs=epochs,
+        # Generate forecast with PyTorch BiLSTM model
+        # Haqiqiy tarixiy ma'lumotlar asosida BiLSTM neyron tarmog'ini o'qitish
+        training_df = df
+        if len(df) < 40:
+            training_df = generate_synthetic_data(df, target_days=60, degradation_factor=degradation)
+
+        seq_len = min(30, max(5, len(training_df) // 4))
+        forecast_df, _, history, is_fallback = train_and_forecast(
+            training_df, feature_cols, forecast_years=forecast_years,
+            seq_length=seq_len, epochs=epochs,
+            degradation_factor=degradation,
             original_last_date=original_last_date
         )
 

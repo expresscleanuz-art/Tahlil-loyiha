@@ -1,12 +1,25 @@
 """
-AI Engine - LSTM Model & Data Processing for Predictive Maintenance
-Multivariate LSTM architecture for industrial equipment health forecasting
+AI Engine - PyTorch Bidirectional LSTM (BiLSTM) Model & Data Processing for Predictive Maintenance
+Multivariate deep learning architecture for industrial equipment health forecasting
 """
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
+try:
+    import torch
+    import torch.nn as nn
+    TORCH_AVAILABLE = True
+except Exception:
+    TORCH_AVAILABLE = False
+
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 import warnings
+import logging
 warnings.filterwarnings('ignore')
+
+logger = logging.getLogger(__name__)
 
 # ============================================================
 # Phase 1: Data Engineering
@@ -101,145 +114,183 @@ def create_sample_data():
 
 
 # ============================================================
-# Phase 2: Predictive Model (GradientBoosting + Sliding Window)
+# Phase 2: Predictive Deep Learning Model (PyTorch BiLSTM)
 # ============================================================
 
-def _create_lag_features(data, seq_length=30):
-    """
-    Convert time series to supervised learning with lag features.
-    Creates rolling statistics (mean, std, min, max) over multiple windows.
-    """
-    from sklearn.preprocessing import MinMaxScaler
-    
-    n_samples, n_features = data.shape
+
+
+if TORCH_AVAILABLE:
+    class BiLSTMForecaster(nn.Module):
+        """
+        Bidirectional LSTM (BiLSTM) Deep Neural Network architecture.
+        Processes multivariate time-series sequences forward and backward
+        to model complex sensor correlations and degrade trajectory patterns.
+        """
+        def __init__(self, input_size, hidden_size=48, num_layers=2, dropout=0.2):
+            super(BiLSTMForecaster, self).__init__()
+            self.hidden_size = hidden_size
+            self.num_layers = num_layers
+            self.lstm = nn.LSTM(
+                input_size=input_size,
+                hidden_size=hidden_size,
+                num_layers=num_layers,
+                bidirectional=True,
+                batch_first=True,
+                dropout=dropout if num_layers > 1 else 0.0
+            )
+            self.fc = nn.Sequential(
+                nn.Linear(hidden_size * 2, hidden_size),
+                nn.ReLU(),
+                nn.Linear(hidden_size, input_size)
+            )
+
+        def forward(self, x):
+            # x shape: (batch_size, seq_len, input_size)
+            out, _ = self.lstm(x)
+            # Oxirgi vaqt qadami holati
+            last_out = out[:, -1, :]
+            return self.fc(last_out)
+
+
+def _train_bilstm(scaled_data, seq_length, epochs, n_features):
+    """PyTorch BiLSTM modelini o'qitish"""
+    n_samples = len(scaled_data)
     X, y = [], []
-    
     for i in range(seq_length, n_samples):
-        window = data[i - seq_length:i]
-        features = []
+        X.append(scaled_data[i - seq_length:i])
+        y.append(scaled_data[i])
         
-        # Raw lag values (last 5 steps)
-        for lag in [1, 3, 5, 10, seq_length]:
-            if lag <= seq_length:
-                features.extend(data[i - lag].tolist())
-        
-        # Rolling statistics over different windows
-        for w in [7, 14, seq_length]:
-            w_data = data[max(0, i - w):i]
-            features.extend(np.mean(w_data, axis=0).tolist())
-            features.extend(np.std(w_data, axis=0).tolist())
-            features.extend(np.max(w_data, axis=0).tolist())
-            features.extend(np.min(w_data, axis=0).tolist())
-        
-        # Trend: difference between recent and older values
-        mid = seq_length // 2
-        recent = np.mean(data[i - mid:i], axis=0)
-        older = np.mean(data[i - seq_length:i - mid], axis=0)
-        features.extend((recent - older).tolist())
-        
-        # Position/time index (normalized)
-        features.append(i / n_samples)
-        
-        X.append(features)
-        y.append(data[i].tolist())
+    X_tensor = torch.tensor(np.array(X), dtype=torch.float32)
+    y_tensor = torch.tensor(np.array(y), dtype=torch.float32)
     
-    return np.array(X), np.array(y)
+    torch.manual_seed(42)
+    model = BiLSTMForecaster(input_size=n_features, hidden_size=48, num_layers=2, dropout=0.2)
+    criterion = nn.MSELoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.005)
+    
+    # Interfeysdan tanlangan aniq epochs davrida o'qitish
+    model.train()
+    history = []
+    actual_epochs = max(5, int(epochs))
+    for epoch in range(actual_epochs):
+        optimizer.zero_grad()
+        output = model(X_tensor)
+        loss = criterion(output, y_tensor)
+        loss.backward()
+        optimizer.step()
+        history.append(float(loss.item()))
+        
+    return model, history
 
 
-def train_and_forecast(df, feature_cols, forecast_years=10, seq_length=30, epochs=30, original_last_date=None):
+def train_and_forecast(df, feature_cols, forecast_years=10, seq_length=30, epochs=30, degradation_factor=0.0003, original_last_date=None):
     """
-    Train GradientBoosting model with sliding window features and generate multi-year forecast.
-    Uses scikit-learn — no TensorFlow required.
+    Train PyTorch Bidirectional LSTM (BiLSTM) model on sensor time-series data
+    using user-specified epochs and generate multi-year predictive forecast.
+    Falls back gracefully to linear trend if PyTorch is unavailable.
     Returns: forecast_df, scaler, training_history, is_fallback
     """
-    from sklearn.multioutput import MultiOutputRegressor
-    
-    from sklearn.linear_model import Ridge
-    
+    forecast_years = int(getattr(forecast_years, 'default', forecast_years))
+    epochs = int(getattr(epochs, 'default', epochs))
+    degradation_factor = float(getattr(degradation_factor, 'default', degradation_factor))
+
     data = df[feature_cols].values
     scaler = MinMaxScaler()
     scaled = scaler.fit_transform(data)
+    n_samples, n_features = scaled.shape
     
-    X, y = _create_lag_features(scaled, seq_length)
-    if len(X) < 20:
-        return None, scaler, None, False
+    seq_length = min(seq_length, max(5, n_samples // 3))
+    forecast_days = int(forecast_years * 365)
     
-    # Train fast Ridge regression model
-    model = MultiOutputRegressor(
-        Ridge(alpha=1.0, random_state=42)
-    )
+    # PyTorch BiLSTM orqali o'qitish va bashorat
+    if TORCH_AVAILABLE and n_samples >= seq_length + 5:
+        try:
+            model, history = _train_bilstm(scaled, seq_length, epochs, n_features)
+            
+            # Ko'p qadamli avtoregressiv bashorat (Autoregressive Rollout)
+            model.eval()
+            current_window = scaled[-seq_length:].copy()
+            predictions = []
+            
+            with torch.no_grad():
+                for step in range(forecast_days):
+                    inp = torch.tensor(current_window.reshape(1, seq_length, n_features), dtype=torch.float32)
+                    next_pred = model(inp).numpy()[0]
+                    
+                    # Mexanik eskirish (degradation prior) koeffitsiyenti
+                    if degradation_factor > 0:
+                        drift = 1.0 + degradation_factor * (step / 365.0)
+                        next_pred = next_pred * drift
+                    
+                    next_pred = np.clip(next_pred, 0.0, 2.0)
+                    predictions.append(next_pred)
+                    
+                    # Darchani keyingi qadamga siljitish
+                    current_window = np.vstack([current_window[1:], next_pred])
+            
+            forecast_scaled = np.array(predictions)
+            forecast_vals = scaler.inverse_transform(forecast_scaled)
+            forecast_vals = np.maximum(forecast_vals, 0.0)
+            
+            if original_last_date is not None:
+                last_date = pd.to_datetime(original_last_date)
+            elif 'Time' in df.columns:
+                last_date = pd.to_datetime(df['Time'].iloc[-1])
+            else:
+                last_date = pd.Timestamp.now()
+                
+            forecast_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=forecast_days, freq='D')
+            forecast_df = pd.DataFrame(forecast_vals, columns=feature_cols, index=forecast_dates)
+            forecast_df.index.name = 'Time'
+            
+            logger.info(f"BiLSTM training complete: {len(history)} epochs, final loss={history[-1]:.6f}")
+            return forecast_df, scaler, history, False
+            
+        except Exception as e:
+            logger.warning(f"BiLSTM execution failed, switching to fallback: {e}")
+            
+    # Fallback rejim (agar torch bo'lmasa yoki xatolik yuz bersa)
+    from sklearn.linear_model import Ridge
+    from sklearn.multioutput import MultiOutputRegressor
     
-    model.fit(X, y)
+    X, y = [], []
+    for i in range(seq_length, n_samples):
+        X.append(scaled[i - seq_length:i].flatten())
+        y.append(scaled[i])
+        
+    if len(X) < 5:
+        return None, scaler, None, True
+        
+    model = MultiOutputRegressor(Ridge(alpha=1.0, random_state=42))
+    model.fit(np.array(X), np.array(y))
     
-    # Generate forecast iteratively
-    forecast_days = forecast_years * 365
-    # Keep a rolling buffer of recent scaled data
-    buffer = scaled.copy()
+    current_window = scaled[-seq_length:].copy()
     predictions = []
-    
     for step in range(forecast_days):
-        n_buf = len(buffer)
-        window = buffer[max(0, n_buf - seq_length):n_buf]
+        x_in = current_window.flatten().reshape(1, -1)
+        next_pred = model.predict(x_in)[0]
+        if degradation_factor > 0:
+            next_pred = next_pred * (1.0 + degradation_factor * (step / 365.0))
+        next_pred = np.clip(next_pred, 0.0, 2.0)
+        predictions.append(next_pred)
+        current_window = np.vstack([current_window[1:], next_pred])
         
-        features = []
-        
-        # Lag values
-        for lag in [1, 3, 5, 10, seq_length]:
-            idx = min(lag, len(window))
-            features.extend(window[-idx].tolist())
-        
-        # Rolling statistics
-        for w in [7, 14, seq_length]:
-            w_data = window[max(0, len(window) - w):]
-            features.extend(np.mean(w_data, axis=0).tolist())
-            features.extend(np.std(w_data, axis=0).tolist())
-            features.extend(np.max(w_data, axis=0).tolist())
-            features.extend(np.min(w_data, axis=0).tolist())
-        
-        # Trend
-        mid = len(window) // 2
-        if mid > 0:
-            recent = np.mean(window[mid:], axis=0)
-            older = np.mean(window[:mid], axis=0)
-            features.extend((recent - older).tolist())
-        else:
-            features.extend(np.zeros(len(feature_cols)).tolist())
-        
-        # Normalized time position (extrapolating beyond training)
-        features.append((len(scaled) + step) / len(scaled))
-        
-        X_pred = np.array([features])
-        pred = model.predict(X_pred)[0]
-        
-        # Clip predictions to reasonable range
-        pred = np.clip(pred, 0.0, 1.5)
-        
-        predictions.append(pred)
-        buffer = np.vstack([buffer, pred.reshape(1, -1)])
-        
-        # Keep buffer manageable (last 2x seq_length)
-        if len(buffer) > seq_length * 2:
-            buffer = buffer[-seq_length * 2:]
-    
     forecast_scaled = np.array(predictions)
     forecast_vals = scaler.inverse_transform(forecast_scaled)
-    
-    # Bug 2 fix: Manfiy qiymatlarni 0 ga almashtirish (inverse_transform dan keyin himoya)
     forecast_vals = np.maximum(forecast_vals, 0.0)
     
-    # Bug 1 fix: Prognoz sanalarini asl tarixiy dataning oxirgi sanasidan boshlash
     if original_last_date is not None:
         last_date = pd.to_datetime(original_last_date)
     elif 'Time' in df.columns:
         last_date = pd.to_datetime(df['Time'].iloc[-1])
     else:
         last_date = pd.Timestamp.now()
-    
+        
     forecast_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=forecast_days, freq='D')
     forecast_df = pd.DataFrame(forecast_vals, columns=feature_cols, index=forecast_dates)
     forecast_df.index.name = 'Time'
     
-    return forecast_df, scaler, None, False
+    return forecast_df, scaler, None, True
 
 
 

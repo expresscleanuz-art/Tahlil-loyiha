@@ -1,5 +1,6 @@
 import os
 import sys
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 import time
 import threading
 import webbrowser

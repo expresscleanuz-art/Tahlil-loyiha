@@ -305,10 +305,10 @@ function App() {
       {/* Main Content Area */}
       <div className={`main-content ${sidebarOpen ? 'shifted' : ''}`}>
         <div className="header">
-          <div className="project-badge">{appConfig.badge}</div>
+          {appConfig.badge ? <div className="project-badge">{appConfig.badge}</div> : null}
           <h1 className="text-gradient">
             <BrainCircuit size={48} style={{display:'inline', verticalAlign:'middle', marginRight: '15px'}} /> 
-            {appConfig.appName} Prognozi
+            {appConfig.appName}
           </h1>
           <p className="subtitle">{appConfig.subtitle}</p>
           <div className="system-status">
